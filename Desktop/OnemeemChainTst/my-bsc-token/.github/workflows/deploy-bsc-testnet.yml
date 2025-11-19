@@ -1,0 +1,64 @@
+name: Deploy to BSC Testnet
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd my-bsc-token
+          npm ci --legacy-peer-deps
+
+      - name: Deploy contract to BSC Testnet
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          BSC_TESTNET_RPC: ${{ secrets.BSC_TESTNET_RPC }}
+        run: |
+          cd my-bsc-token
+          npm install --legacy-peer-deps
+          npx hardhat run scripts/deploy_and_write.cjs --network bscTestnet
+
+      - name: Add liquidity on PancakeSwap Testnet
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          BSC_TESTNET_RPC: ${{ secrets.BSC_TESTNET_RPC }}
+          PCS_ROUTER: ${{ secrets.PCS_ROUTER }}
+          WBNB: ${{ secrets.WBNB }}
+          LIQ_TOKEN: ${{ secrets.LIQ_TOKEN }}
+          LIQ_BNB: ${{ secrets.LIQ_BNB }}
+        run: |
+          cd my-bsc-token
+          npx hardhat run scripts/addLiquidity.cjs --network bscTestnet
+
+      - name: Optional - Verify contract on BscScan
+        if: ${{ secrets.BSCSCAN_API_KEY != '' }}
+        env:
+          BSCSCAN_API_KEY: ${{ secrets.BSCSCAN_API_KEY }}
+        run: |
+          cd my-bsc-token
+          DEPLOYED=$(cat deployed-address.txt)
+          npx hardhat verify --network bscTestnet $DEPLOYED "OneMeeemChain" "OMC" "1000000000000000000000000000"
+
+      - name: Optional - copy deployed address to remote server (SSH)
+        if: ${{ secrets.SSH_PRIVATE_KEY != '' && secrets.SERVER_HOST != '' }}
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Optional - write deployed address on remote server
+        if: ${{ secrets.SSH_PRIVATE_KEY != '' && secrets.SERVER_HOST != '' }}
+        run: |
+          echo "Copying deployed address to remote server..."
+          DEPLOYED=$(cat my-bsc-token/deployed-address.txt)
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ~/deploy && cat > ~/deploy/deployed-address.txt" <<< "$DEPLOYED"
