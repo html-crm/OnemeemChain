@@ -1,0 +1,33 @@
+{
+  "name": "my-bsc-token",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy:bsctest": "npx hardhat run scripts/deploy.cjs --network bscTestnet",
+    "deploy:bsc": "npx hardhat run scripts/deploy.cjs --network bscMainnet",
+  "add-liquidity": "npx hardhat run scripts/addLiquidity.cjs --network bscTestnet",
+  "swap:buy": "npx hardhat run scripts/swapBuy.cjs --network bscTestnet",
+  "swap:sell": "npx hardhat run scripts/swapSell.cjs --network bscTestnet",
+    "verify:bsctest": "npx hardhat verify --network bscTestnet",
+    "verify:bsc": "npx hardhat verify --network bscMainnet",
+    "start": "npx hardhat node"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "hardhat": "^2.16.2",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-etherscan": "^3.1.0",
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.3",
+    "dotenv": "^17.2.3",
+    "ethers": "^5.7.2"
+  }
+}

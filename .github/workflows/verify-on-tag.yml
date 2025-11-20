@@ -1,0 +1,66 @@
+name: Verify on tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+      - name: Compile
+        run: npx hardhat compile
+      - name: Run tests
+        run: npx hardhat test test/run-MyToken.cjs --show-stack-traces
+      - name: Deploy to BSC testnet and write address
+        if: "secrets.BSCSCAN_API_KEY && secrets.PRIVATE_KEY && secrets.BSC_TESTNET_RPC"
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          BSC_TESTNET_RPC: ${{ secrets.BSC_TESTNET_RPC }}
+        run: |
+          npx hardhat run scripts/deploy_and_write.cjs --network bscTestnet
+
+      - name: Verify deployed contract on BscScan
+        if: "secrets.BSCSCAN_API_KEY && secrets.PRIVATE_KEY && secrets.BSC_TESTNET_RPC"
+        env:
+          BSCSCAN_API_KEY: ${{ secrets.BSCSCAN_API_KEY }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          BSC_TESTNET_RPC: ${{ secrets.BSC_TESTNET_RPC }}
+        run: |
+          ADDRESS=$(cat deployed-address.txt)
+          echo "Verifying address: $ADDRESS"
+          # constructor args: name, symbol, initialSupply (1,000,000 with 18 decimals)
+          npx hardhat verify --network bscTestnet $ADDRESS "MyToken" "MTK" "1000000000000000000000000"
+
+      - name: Upload deployed address as artifact
+        if: "secrets.BSCSCAN_API_KEY && secrets.PRIVATE_KEY && secrets.BSC_TESTNET_RPC"
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-address
+          path: deployed-address.txt
+
+      - name: Read deployed address
+        id: get_addr
+        if: "secrets.BSCSCAN_API_KEY && secrets.PRIVATE_KEY && secrets.BSC_TESTNET_RPC"
+        run: |
+          echo "addr=$(cat deployed-address.txt)" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release with deployed address
+        if: "secrets.BSCSCAN_API_KEY && secrets.PRIVATE_KEY && secrets.BSC_TESTNET_RPC"
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }} (auto-deploy)
+          body: |
+            Deployed MyToken to BSC Testnet.
+            Deployed address: ${{ steps.get_addr.outputs.addr }}
+          draft: false
+          prerelease: false
